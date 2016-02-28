@@ -1,7 +1,7 @@
 ---
 title: "Prediction Assignment Writeup"
 author: "Mooc Coursera"
-date: "December 27, 2015"
+date: "27 Feb, 2016"
 output: html_document
 ---
 # Executive Summary
