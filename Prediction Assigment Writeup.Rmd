@@ -26,12 +26,12 @@ library(Hmisc)
 
 ```{r}
 training<-read.csv("pml-training.csv",na.strings=c("NA","#DIV/0!"))
-testing<-read.csv("pml-testing.csv",na.strings=c("NA","#DIV/0!"))
+testingWeb<-read.csv("pml-testing.csv",na.strings=c("NA","#DIV/0!"))
 ```
 
 Variables with no missing values will be good candidate for Predictor
 ```{r}
-isAnyMissing <- sapply(testing, function (x) any(is.na(x) | x == ""))
+isAnyMissing <- sapply(testingWeb, function (x) any(is.na(x) | x == ""))
 isPredictor <- !isAnyMissing & grepl("belt|[^(fore)]arm|dumbbell|forearm", names(isAnyMissing))
 predictorCandidates <- names(isAnyMissing)[isPredictor]
 predictorCandidates
@@ -39,13 +39,83 @@ predictorCandidates
 # Subsetting the primary dataset to include only the predictor candidates and the outcome variable,
 ```{r}
 varincluded <- c("classe", predictorCandidates)
-training <- training[,varincluded]
+DataTraining <- training[ ,varincluded]
+dim(DataTraining)
+```
+```{r}
+names(DataTraining)
+```
+```{r}
+inTrain <- createDataPartition(y = DataTraining$classe,p = 0.6,list = FALSE)
+training <- DataTraining[inTrain,]
+testing <- DataTraining[-inTrain,]
 dim(training)
+dim(testing)
 ```
 ```{r}
-names(training)
+library(tree)
+set.seed(12345)
+tree.training=tree(classe~.,data=training)
+summary(tree.training)
 ```
 ```{r}
-training$classe = factor(training$classe)
+plot(tree.training)
+text(tree.training,pretty=0, cex =.8)
 ```
-# Splitting the dataset into 60 percent training and 40 percent test set
+# Cross Validation and predicting ne Values
+We are going to predict the new values and check the performance using cross Validation
+```{r}
+tree.pred <- predict(tree.training,testing,type = "class")
+predMatrix <- with(testing,table(tree.pred,classe))
+sum(diag(predMatrix))/sum(as.vector(predMatrix))
+```
+But 0.66 is not that accurate
+```{r}
+cv.training=cv.tree(tree.training,FUN=prune.misclass)
+cv.training
+```
+```{r}
+plot(cv.training)
+```
+This shows that when the size of the tree goes down,the deviance goes up.It means that 16 is a good size
+Suppose we prune it at the size of nodes equal 14
+```{r}
+prune.training=prune.misclass(tree.training,best=14)
+```
+Now let's evaluate this pruned tree on the test data
+```{r}
+tree.pred=predict(prune.training,testing,type="class")
+predMatrix = with(testing,table(tree.pred,classe))
+sum(diag(predMatrix))/sum(as.vector(predMatrix)) # error rate
+```
+0.64 is less than 0.66 y small amount hich implies pruning did not hurt with respect to misclassification errors.we used less predictors to get almost similar results.By prunning we got a shallower tree.
+Now single tree is not quite efficient ,so we are going to use Bagging to improve the efficiency.we are going to use the popular Random Forest Algorithm.
+
+# Prediction using Random Forest
+```{r}
+require(randomForest)
+```
+```{r}
+rf.training=randomForest(classe~.,data=training,ntree=100, importance=TRUE)
+rf.training
+```
+```{r}
+plot(rf.training,log="y")
+```
+
+# Out of Sample errors
+## Now let's evaluate the tree on testing Data
+```{r}
+tree.pred=predict(rf.training,testing,type="class")
+predMatrix = with(testing,table(tree.pred,classe))
+sum(diag(predMatrix))/sum(as.vector(predMatrix)) # error rate
+```
+The result 0.99 tells us that we are getting very good estimate
+# Inference
+We can predict the test data from the web:
+```{r}
+quizAnswers <- predict(rf.training, testingWeb)
+quizAnswers
+```
+
+
