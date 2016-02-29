@@ -2,7 +2,7 @@
 title: "Prediction Assignment Writeup"
 author: "Mooc Coursera"
 date: "27 Feb, 2016"
-output: html_document
+output: pdf_document
 ---
 # Executive Summary
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
@@ -45,6 +45,8 @@ dim(DataTraining)
 ```{r}
 names(DataTraining)
 ```
+## Create the Data Partition of 60 percent training set and 30 percent testing set
+
 ```{r}
 inTrain <- createDataPartition(y = DataTraining$classe,p = 0.6,list = FALSE)
 training <- DataTraining[inTrain,]
@@ -54,7 +56,7 @@ dim(testing)
 ```
 ```{r}
 library(tree)
-set.seed(12345)
+set.seed(333)
 tree.training=tree(classe~.,data=training)
 summary(tree.training)
 ```
@@ -62,14 +64,14 @@ summary(tree.training)
 plot(tree.training)
 text(tree.training,pretty=0, cex =.8)
 ```
-# Cross Validation and predicting ne Values
+# Cross Validation and predicting new Values
 We are going to predict the new values and check the performance using cross Validation
 ```{r}
 tree.pred <- predict(tree.training,testing,type = "class")
 predMatrix <- with(testing,table(tree.pred,classe))
 sum(diag(predMatrix))/sum(as.vector(predMatrix))
 ```
-But 0.66 is not that accurate
+Implementing the Prunning technique
 ```{r}
 cv.training=cv.tree(tree.training,FUN=prune.misclass)
 cv.training
@@ -77,18 +79,23 @@ cv.training
 ```{r}
 plot(cv.training)
 ```
+
 This shows that when the size of the tree goes down,the deviance goes up.It means that 16 is a good size
 Suppose we prune it at the size of nodes equal 14
+
 ```{r}
 prune.training=prune.misclass(tree.training,best=14)
 ```
+
 Now let's evaluate this pruned tree on the test data
+
 ```{r}
 tree.pred=predict(prune.training,testing,type="class")
 predMatrix = with(testing,table(tree.pred,classe))
 sum(diag(predMatrix))/sum(as.vector(predMatrix)) # error rate
 ```
-0.64 is less than 0.66 y small amount hich implies pruning did not hurt with respect to misclassification errors.we used less predictors to get almost similar results.By prunning we got a shallower tree.
+Thus result with test data only differs by small amount which implies pruning did not hurt with respect to misclassification errors.we used less predictors to get almost similar results.By prunning we got a shallower tree.
+
 Now single tree is not quite efficient ,so we are going to use Bagging to improve the efficiency.we are going to use the popular Random Forest Algorithm.
 
 # Prediction using Random Forest
@@ -103,14 +110,16 @@ rf.training
 plot(rf.training,log="y")
 ```
 
-# Out of Sample errors
+Our random forest algorithm shows an OOB estimate of  error rate: 0.82% which is quite good
+
+# Out of Sample errors:
 ## Now let's evaluate the tree on testing Data
 ```{r}
 tree.pred=predict(rf.training,testing,type="class")
 predMatrix = with(testing,table(tree.pred,classe))
 sum(diag(predMatrix))/sum(as.vector(predMatrix)) # error rate
 ```
-The result 0.99 tells us that we are getting very good estimate
+The result 0.99 tells us that we are getting very good estimate.Now let's print the prediction answers for the Last quiz
 # Inference
 We can predict the test data from the web:
 ```{r}
